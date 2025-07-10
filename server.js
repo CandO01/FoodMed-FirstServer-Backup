@@ -21,10 +21,14 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
 
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204)
-    return res.end()
-  }
+    if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    });
+    return res.end();
+    }
 
   const db = getDB()
   const usersCollection = db.collection('users')
@@ -257,14 +261,14 @@ connectToDB().then(() => {
 //   //   res.end()
 //   //   return
 //   // }
-//     if (req.method === 'OPTIONS') {
-//     res.writeHead(204, {
-//       'Access-Control-Allow-Origin': '*',
-//       'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE',
-//       'Access-Control-Allow-Headers': 'Content-Type'
-//     });
-//     return res.end();
-//   }
+    if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    });
+    return res.end();
+  }
 
 //   // Sign Up
 // if (req.url === '/signup' && req.method === 'POST') {
