@@ -27,16 +27,14 @@ const server = http.createServer(async (req, res) => {
       'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE',
       'Access-Control-Allow-Headers': 'Content-Type'
     })
-    return res.end()
+    res.end()
+    return
   }
-
-  console.log(`${req.method} ${req.url}`)
 
   const db = getDB()
   const usersCollection = db.collection('users')
   const otpsCollection = db.collection('otps')
 
-  // Helper: Parse request body
   const parseBody = async () =>
     new Promise((resolve) => {
       let body = ''
@@ -44,7 +42,6 @@ const server = http.createServer(async (req, res) => {
       req.on('end', () => resolve(JSON.parse(body)))
     })
 
-  // Helper: Send OTP email
   const sendOTPEmail = (email, otp) => {
     return transporter.sendMail({
       from: process.env.EMAIL,
@@ -54,119 +51,98 @@ const server = http.createServer(async (req, res) => {
     })
   }
 
-  // Sign Up
   if (req.url === '/signup' && req.method === 'POST') {
     const { name, email, password, confirm } = await parseBody()
-
     if (!name || !email || !password || password !== confirm) {
-      res.writeHead(400, { 'Content-Type': 'application/json' })
-      return res.end(JSON.stringify({ error: 'Invalid input' }))
+      res.writeHead(400)
+      res.end(JSON.stringify({ error: 'Invalid input' }))
+    } else {
+      const existing = await usersCollection.findOne({ email })
+      if (existing) {
+        res.writeHead(409)
+        res.end(JSON.stringify({ error: 'User already exists' }))
+      } else {
+        await usersCollection.insertOne({ name, email, password })
+        res.writeHead(200)
+        res.end(JSON.stringify({ message: 'Signup successful', redirect: '/home' }))
+      }
     }
-
-    const existing = await usersCollection.findOne({ email })
-    if (existing) {
-      res.writeHead(409, { 'Content-Type': 'application/json' })
-      return res.end(JSON.stringify({ error: 'User already exists' }))
-    }
-
-    await usersCollection.insertOne({ name, email, password })
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    return res.end(JSON.stringify({ message: 'Signup successful', redirect: '/home' }))
-  }
-
-  // Login
-  else if (req.url === '/login' && req.method === 'POST') {
+  } else if (req.url === '/login' && req.method === 'POST') {
     const { email, password } = await parseBody()
     const user = await usersCollection.findOne({ email, password })
 
     if (!user) {
-      res.writeHead(401, { 'Content-Type': 'application/json' })
-      return res.end(JSON.stringify({ error: 'Invalid credentials' }))
+      res.writeHead(401)
+      res.end(JSON.stringify({ error: 'Invalid credentials' }))
+    } else {
+      res.writeHead(200)
+      res.end(JSON.stringify({ message: 'Login successful', name: user.name, redirect: 'landing-page' }))
     }
-
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    return res.end(JSON.stringify({ message: 'Login successful', name: user.name, redirect: 'landing-page' }))
-  }
-
-  // Send OTP
-  else if (req.url === '/send-otp' && req.method === 'POST') {
+  } else if (req.url === '/send-otp' && req.method === 'POST') {
     const { email } = await parseBody()
     const user = await usersCollection.findOne({ email })
 
     if (!user) {
-      res.writeHead(404, { 'Content-Type': 'application/json' })
-      return res.end(JSON.stringify({ error: 'User not found' }))
+      res.writeHead(404)
+      res.end(JSON.stringify({ error: 'User not found' }))
+    } else {
+      const otp = Math.floor(100000 + Math.random() * 900000).toString()
+      await otpsCollection.updateOne(
+        { email },
+        { $set: { otp, createdAt: Date.now() } },
+        { upsert: true }
+      )
+
+      await sendOTPEmail(email, otp)
+      res.writeHead(200)
+      res.end(JSON.stringify({ message: 'OTP sent to email' }))
     }
-
-    const otp = Math.floor(100000 + Math.random() * 900000).toString()
-    await otpsCollection.updateOne(
-      { email },
-      { $set: { otp, createdAt: Date.now() } },
-      { upsert: true }
-    )
-
-    await sendOTPEmail(email, otp)
-
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    return res.end(JSON.stringify({ message: 'OTP sent to email' }))
-  }
-
-  // Verify OTP
-  else if (req.url === '/verify-otp' && req.method === 'POST') {
+  } else if (req.url === '/verify-otp' && req.method === 'POST') {
     const { email, otp } = await parseBody()
     const record = await otpsCollection.findOne({ email })
 
     if (!record || record.otp !== otp.trim()) {
-      res.writeHead(400, { 'Content-Type': 'application/json' })
-      return res.end(JSON.stringify({ error: 'Invalid OTP' }))
+      res.writeHead(400)
+      res.end(JSON.stringify({ error: 'Invalid OTP' }))
+    } else {
+      const expired = Date.now() - record.createdAt > 5 * 60 * 1000
+      if (expired) {
+        res.writeHead(400)
+        res.end(JSON.stringify({ error: 'OTP expired' }))
+      } else {
+        res.writeHead(200)
+        res.end(JSON.stringify({ message: 'OTP verified' }))
+      }
     }
-
-    const expired = Date.now() - record.createdAt > 5 * 60 * 1000
-    if (expired) {
-      res.writeHead(400, { 'Content-Type': 'application/json' })
-      return res.end(JSON.stringify({ error: 'OTP expired' }))
-    }
-
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    return res.end(JSON.stringify({ message: 'OTP verified' }))
-  }
-
-  // Reset Password
-  else if (req.url === '/reset-password' && req.method === 'POST') {
+  } else if (req.url === '/reset-password' && req.method === 'POST') {
     const { email, password, confirm } = await parseBody()
     if (password !== confirm) {
-      res.writeHead(400, { 'Content-Type': 'application/json' })
-      return res.end(JSON.stringify({ error: 'Passwords do not match' }))
+      res.writeHead(400)
+      res.end(JSON.stringify({ error: 'Passwords do not match' }))
+    } else {
+      const updated = await usersCollection.updateOne({ email }, { $set: { password } })
+      if (updated.matchedCount === 0) {
+        res.writeHead(404)
+        res.end(JSON.stringify({ error: 'User not found' }))
+      } else {
+        res.writeHead(200)
+        res.end(JSON.stringify({ message: 'Password reset successful' }))
+      }
     }
-
-    const updated = await usersCollection.updateOne({ email }, { $set: { password } })
-    if (updated.matchedCount === 0) {
-      res.writeHead(404, { 'Content-Type': 'application/json' })
-      return res.end(JSON.stringify({ error: 'User not found' }))
-    }
-
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    return res.end(JSON.stringify({ message: 'Password reset successful' }))
-  }
-
-  // Get All Users (Test route)
-  else if (req.url === '/users' && req.method === 'GET') {
+  } else if (req.url === '/users' && req.method === 'GET') {
     const users = await usersCollection.find().toArray()
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    return res.end(JSON.stringify(users))
-  }
-
-  // Fallback for undefined routes
-  else {
-    res.writeHead(404, { 'Content-Type': 'application/json' })
-    return res.end(JSON.stringify({ error: 'Route not found' }))
+    res.writeHead(200)
+    res.end(JSON.stringify(users))
+  } else {
+    res.writeHead(404)
+    res.end(JSON.stringify({ error: 'Route not found' }))
   }
 })
 
-// Start server
 connectToDB().then(() => {
-  server.listen(PORT, () => console.log(`✅ Connected to MongoDB\n🚀 Server running on port ${PORT}`))
+  server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`))
 })
+
 
 
 
