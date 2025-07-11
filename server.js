@@ -21,20 +21,22 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
 
-    if (req.method === 'OPTIONS') {
-      res.writeHead(204, {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      });
-        res.end();
-    }
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    })
+    return res.end()
+  }
+
+  console.log(`${req.method} ${req.url}`)
 
   const db = getDB()
   const usersCollection = db.collection('users')
   const otpsCollection = db.collection('otps')
 
-  // Helpers
+  // Helper: Parse request body
   const parseBody = async () =>
     new Promise((resolve) => {
       let body = ''
@@ -42,6 +44,7 @@ const server = http.createServer(async (req, res) => {
       req.on('end', () => resolve(JSON.parse(body)))
     })
 
+  // Helper: Send OTP email
   const sendOTPEmail = (email, otp) => {
     return transporter.sendMail({
       from: process.env.EMAIL,
@@ -51,24 +54,24 @@ const server = http.createServer(async (req, res) => {
     })
   }
 
-  // Signup
+  // Sign Up
   if (req.url === '/signup' && req.method === 'POST') {
     const { name, email, password, confirm } = await parseBody()
+
     if (!name || !email || !password || password !== confirm) {
       res.writeHead(400, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ error: 'Invalid input' }))
-
+      return res.end(JSON.stringify({ error: 'Invalid input' }))
     }
 
     const existing = await usersCollection.findOne({ email })
     if (existing) {
       res.writeHead(409, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ error: 'User already exists' }))
+      return res.end(JSON.stringify({ error: 'User already exists' }))
     }
 
     await usersCollection.insertOne({ name, email, password })
     res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ message: 'Signup successful', redirect: '/home' }))
+    return res.end(JSON.stringify({ message: 'Signup successful', redirect: '/home' }))
   }
 
   // Login
@@ -78,20 +81,21 @@ const server = http.createServer(async (req, res) => {
 
     if (!user) {
       res.writeHead(401, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ error: 'Invalid credentials' }))
+      return res.end(JSON.stringify({ error: 'Invalid credentials' }))
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ message: 'Login successful', name: user.name, redirect: 'landing-page' }))
+    return res.end(JSON.stringify({ message: 'Login successful', name: user.name, redirect: 'landing-page' }))
   }
 
   // Send OTP
   else if (req.url === '/send-otp' && req.method === 'POST') {
     const { email } = await parseBody()
     const user = await usersCollection.findOne({ email })
+
     if (!user) {
       res.writeHead(404, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ error: 'User not found' }))
+      return res.end(JSON.stringify({ error: 'User not found' }))
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString()
@@ -102,27 +106,29 @@ const server = http.createServer(async (req, res) => {
     )
 
     await sendOTPEmail(email, otp)
+
     res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ message: 'OTP sent to email' }))
+    return res.end(JSON.stringify({ message: 'OTP sent to email' }))
   }
 
   // Verify OTP
   else if (req.url === '/verify-otp' && req.method === 'POST') {
     const { email, otp } = await parseBody()
     const record = await otpsCollection.findOne({ email })
+
     if (!record || record.otp !== otp.trim()) {
       res.writeHead(400, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ error: 'Invalid OTP' }))
+      return res.end(JSON.stringify({ error: 'Invalid OTP' }))
     }
 
     const expired = Date.now() - record.createdAt > 5 * 60 * 1000
     if (expired) {
       res.writeHead(400, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ error: 'OTP expired' }))
+      return res.end(JSON.stringify({ error: 'OTP expired' }))
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ message: 'OTP verified' }))
+    return res.end(JSON.stringify({ message: 'OTP verified' }))
   }
 
   // Reset Password
@@ -130,37 +136,38 @@ const server = http.createServer(async (req, res) => {
     const { email, password, confirm } = await parseBody()
     if (password !== confirm) {
       res.writeHead(400, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ error: 'Passwords do not match' }))
+      return res.end(JSON.stringify({ error: 'Passwords do not match' }))
     }
 
     const updated = await usersCollection.updateOne({ email }, { $set: { password } })
     if (updated.matchedCount === 0) {
-      res.writeHead(400, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ error: 'User not found' }))
+      res.writeHead(404, { 'Content-Type': 'application/json' })
+      return res.end(JSON.stringify({ error: 'User not found' }))
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ message: 'Password reset successful' }))
+    return res.end(JSON.stringify({ message: 'Password reset successful' }))
   }
 
-  // Get All Users (for testing only)
+  // Get All Users (Test route)
   else if (req.url === '/users' && req.method === 'GET') {
     const users = await usersCollection.find().toArray()
     res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify(users))
+    return res.end(JSON.stringify(users))
   }
 
-  // Default Route
+  // Fallback for undefined routes
   else {
     res.writeHead(404, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ error: 'Route not found' }))
+    return res.end(JSON.stringify({ error: 'Route not found' }))
   }
 })
 
-// Start the server
+// Start server
 connectToDB().then(() => {
-  server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`))
+  server.listen(PORT, () => console.log(`✅ Connected to MongoDB\n🚀 Server running on port ${PORT}`))
 })
+
 
 
 
