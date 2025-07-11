@@ -55,18 +55,20 @@ const server = http.createServer(async (req, res) => {
   if (req.url === '/signup' && req.method === 'POST') {
     const { name, email, password, confirm } = await parseBody()
     if (!name || !email || !password || password !== confirm) {
-      res.writeHead(400).end(JSON.stringify({ error: 'Invalid input' }))
-      return
+      res.writeHead(400, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'Invalid input' }))
+
     }
 
     const existing = await usersCollection.findOne({ email })
     if (existing) {
-      res.writeHead(409).end(JSON.stringify({ error: 'User already exists' }))
-      return
+      res.writeHead(409, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'User already exists' }))
     }
 
     await usersCollection.insertOne({ name, email, password })
-    res.writeHead(200).end(JSON.stringify({ message: 'Signup successful', redirect: '/home' }))
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ message: 'Signup successful', redirect: '/home' }))
   }
 
   // Login
@@ -75,11 +77,12 @@ const server = http.createServer(async (req, res) => {
     const user = await usersCollection.findOne({ email, password })
 
     if (!user) {
-      res.writeHead(401).end(JSON.stringify({ error: 'Invalid credentials' }))
-      return
+      res.writeHead(401, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'Invalid credentials' }))
     }
 
-    res.writeHead(200).end(JSON.stringify({ message: 'Login successful', name: user.name, redirect: 'landing-page' }))
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ message: 'Login successful', name: user.name, redirect: 'landing-page' }))
   }
 
   // Send OTP
@@ -87,8 +90,8 @@ const server = http.createServer(async (req, res) => {
     const { email } = await parseBody()
     const user = await usersCollection.findOne({ email })
     if (!user) {
-      res.writeHead(404).end(JSON.stringify({ error: 'User not found' }))
-      return
+      res.writeHead(404, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'User not found' }))
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString()
@@ -99,7 +102,8 @@ const server = http.createServer(async (req, res) => {
     )
 
     await sendOTPEmail(email, otp)
-    res.writeHead(200).end(JSON.stringify({ message: 'OTP sent to email' }))
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ message: 'OTP sent to email' }))
   }
 
   // Verify OTP
@@ -107,45 +111,49 @@ const server = http.createServer(async (req, res) => {
     const { email, otp } = await parseBody()
     const record = await otpsCollection.findOne({ email })
     if (!record || record.otp !== otp.trim()) {
-      res.writeHead(400).end(JSON.stringify({ error: 'Invalid OTP' }))
-      return
+      res.writeHead(400, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'Invalid OTP' }))
     }
 
     const expired = Date.now() - record.createdAt > 5 * 60 * 1000
     if (expired) {
-      res.writeHead(400).end(JSON.stringify({ error: 'OTP expired' }))
-      return
+      res.writeHead(400, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'OTP expired' }))
     }
 
-    res.writeHead(200).end(JSON.stringify({ message: 'OTP verified' }))
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ message: 'OTP verified' }))
   }
 
   // Reset Password
   else if (req.url === '/reset-password' && req.method === 'POST') {
     const { email, password, confirm } = await parseBody()
     if (password !== confirm) {
-      res.writeHead(400).end(JSON.stringify({ error: 'Passwords do not match' }))
-      return
+      res.writeHead(400, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'Passwords do not match' }))
     }
 
     const updated = await usersCollection.updateOne({ email }, { $set: { password } })
     if (updated.matchedCount === 0) {
-      res.writeHead(404).end(JSON.stringify({ error: 'User not found' }))
-      return
+      res.writeHead(400, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'User not found' }))
     }
 
-    res.writeHead(200).end(JSON.stringify({ message: 'Password reset successful' }))
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ message: 'Password reset successful' }))
   }
 
   // Get All Users (for testing only)
   else if (req.url === '/users' && req.method === 'GET') {
     const users = await usersCollection.find().toArray()
-    res.writeHead(200).end(JSON.stringify(users))
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify(users))
   }
 
   // Default Route
   else {
-    res.writeHead(404).end(JSON.stringify({ error: 'Route not found' }))
+    res.writeHead(404, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ error: 'Route not found' }))
   }
 })
 
