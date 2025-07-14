@@ -51,34 +51,60 @@ const server = http.createServer(async (req, res) => {
     })
   }
 
-  if (req.url === '/signup' && req.method === 'POST') {
-    const { name, email, password, confirm } = await parseBody()
-    if (!name || !email || !password || password !== confirm) {
-      res.writeHead(400)
-      res.end(JSON.stringify({ error: 'Invalid input' }))
-    } else {
-      const existing = await usersCollection.findOne({ email })
-      if (existing) {
-        res.writeHead(409)
-        res.end(JSON.stringify({ error: 'User already exists' }))
+      if (req.url === '/signup' && req.method === 'POST') {
+        const { name, email, password, confirm, role } = await parseBody();
+
+        if (!name || !email || !password || password !== confirm || !role) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: 'Invalid input' }));
+          return;
+        }
+
+        const existing = await usersCollection.findOne({ email });
+        if (existing) {
+          res.writeHead(409);
+          res.end(JSON.stringify({ error: 'User already exists' }));
+          return;
+        }
+
+        const result = await usersCollection.insertOne({ name, email, password, role });
+
+        const newUser = {
+          id: result.insertedId,
+          name,
+          email,
+          role
+        };
+
+        res.writeHead(200);
+        res.end(JSON.stringify({
+          message: 'Signup successful',
+          user: newUser
+        }));
+      }
+
+  // -- LOGIN SECTION--
+      else if (req.url === '/login' && req.method === 'POST') {
+      const { email, password } = await parseBody();
+      const user = await usersCollection.findOne({ email, password });
+
+      if (!user) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Invalid credentials' }));
       } else {
-        await usersCollection.insertOne({ name, email, password })
-        res.writeHead(200)
-        res.end(JSON.stringify({ message: 'Signup successful', redirect: '/home' }))
+        res.writeHead(200);
+        res.end(JSON.stringify({
+          message: 'You have logged in successfully',
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          redirect: 'landing-page'
+        }));
       }
     }
-  } else if (req.url === '/login' && req.method === 'POST') {
-    const { email, password } = await parseBody()
-    const user = await usersCollection.findOne({ email, password })
 
-    if (!user) {
-      res.writeHead(401)
-      res.end(JSON.stringify({ error: 'Invalid credentials' }))
-    } else {
-      res.writeHead(200)
-      res.end(JSON.stringify({ message: 'Login successful', name: user.name, redirect: 'landing-page' }))
-    }
-  } else if (req.url === '/send-otp' && req.method === 'POST') {
+  else if (req.url === '/send-otp' && req.method === 'POST') {
     const { email } = await parseBody()
     const user = await usersCollection.findOne({ email })
 
@@ -142,6 +168,230 @@ const server = http.createServer(async (req, res) => {
 connectToDB().then(() => {
   server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`))
 })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// import http from 'node:http'
+// import { connectToDB, getDB } from './db.js'
+// import dotenv from 'dotenv'
+// import nodemailer from 'nodemailer'
+
+// dotenv.config()
+
+// const PORT = process.env.PORT || 5223
+
+// // Email Setup
+// const transporter = nodemailer.createTransport({
+//   service: 'gmail',
+//   auth: {
+//     user: process.env.EMAIL,
+//     pass: process.env.EMAIL_PASS
+//   }
+// })
+
+// const server = http.createServer(async (req, res) => {
+//   res.setHeader('Access-Control-Allow-Origin', '*')
+//   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+//   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+
+//   if (req.method === 'OPTIONS') {
+//     res.writeHead(204, {
+//       'Access-Control-Allow-Origin': '*',
+//       'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE',
+//       'Access-Control-Allow-Headers': 'Content-Type'
+//     })
+//     res.end()
+//     return
+//   }
+
+//   const db = getDB()
+//   const usersCollection = db.collection('users')
+//   const otpsCollection = db.collection('otps')
+
+//   const parseBody = async () =>
+//     new Promise((resolve) => {
+//       let body = ''
+//       req.on('data', chunk => (body += chunk.toString()))
+//       req.on('end', () => resolve(JSON.parse(body)))
+//     })
+
+//   const sendOTPEmail = (email, otp) => {
+//     return transporter.sendMail({
+//       from: process.env.EMAIL,
+//       to: email,
+//       subject: 'Your FOODMED OTP Code',
+//       text: `Your OTP code is ${otp}`
+//     })
+//   }
+
+//   if (req.url === '/signup' && req.method === 'POST') {
+//     const { name, email, password, confirm } = await parseBody()
+//     if (!name || !email || !password || password !== confirm) {
+//       res.writeHead(400)
+//       res.end(JSON.stringify({ error: 'Invalid input' }))
+//     } else {
+//       const existing = await usersCollection.findOne({ email })
+//       if (existing) {
+//         res.writeHead(409)
+//         res.end(JSON.stringify({ error: 'User already exists' }))
+//       } else {
+//         await usersCollection.insertOne({ name, email, password })
+//         res.writeHead(200)
+//         res.end(JSON.stringify({ message: 'Signup successful', redirect: '/home' }))
+//       }
+//     }
+//   } else if (req.url === '/login' && req.method === 'POST') {
+//     const { email, password } = await parseBody()
+//     const user = await usersCollection.findOne({ email, password })
+
+//     if (!user) {
+//       res.writeHead(401)
+//       res.end(JSON.stringify({ error: 'Invalid credentials' }))
+//     } else {
+//       res.writeHead(200)
+//       res.end(JSON.stringify({ message: 'Login successful', name: user.name, redirect: 'landing-page' }))
+//     }
+//   } else if (req.url === '/send-otp' && req.method === 'POST') {
+//     const { email } = await parseBody()
+//     const user = await usersCollection.findOne({ email })
+
+//     if (!user) {
+//       res.writeHead(404)
+//       res.end(JSON.stringify({ error: 'User not found' }))
+//     } else {
+//       const otp = Math.floor(100000 + Math.random() * 900000).toString()
+//       await otpsCollection.updateOne(
+//         { email },
+//         { $set: { otp, createdAt: Date.now() } },
+//         { upsert: true }
+//       )
+
+//       await sendOTPEmail(email, otp)
+//       res.writeHead(200)
+//       res.end(JSON.stringify({ message: 'OTP sent to email' }))
+//     }
+//   } else if (req.url === '/verify-otp' && req.method === 'POST') {
+//     const { email, otp } = await parseBody()
+//     const record = await otpsCollection.findOne({ email })
+
+//     if (!record || record.otp !== otp.trim()) {
+//       res.writeHead(400)
+//       res.end(JSON.stringify({ error: 'Invalid OTP' }))
+//     } else {
+//       const expired = Date.now() - record.createdAt > 5 * 60 * 1000
+//       if (expired) {
+//         res.writeHead(400)
+//         res.end(JSON.stringify({ error: 'OTP expired' }))
+//       } else {
+//         res.writeHead(200)
+//         res.end(JSON.stringify({ message: 'OTP verified' }))
+//       }
+//     }
+//   } else if (req.url === '/reset-password' && req.method === 'POST') {
+//     const { email, password, confirm } = await parseBody()
+//     if (password !== confirm) {
+//       res.writeHead(400)
+//       res.end(JSON.stringify({ error: 'Passwords do not match' }))
+//     } else {
+//       const updated = await usersCollection.updateOne({ email }, { $set: { password } })
+//       if (updated.matchedCount === 0) {
+//         res.writeHead(404)
+//         res.end(JSON.stringify({ error: 'User not found' }))
+//       } else {
+//         res.writeHead(200)
+//         res.end(JSON.stringify({ message: 'Password reset successful' }))
+//       }
+//     }
+//   } else if (req.url === '/users' && req.method === 'GET') {
+//     const users = await usersCollection.find().toArray()
+//     res.writeHead(200)
+//     res.end(JSON.stringify(users))
+//   } else {
+//     res.writeHead(404)
+//     res.end(JSON.stringify({ error: 'Route not found' }))
+//   }
+// })
+
+// connectToDB().then(() => {
+//   server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`))
+// })
 
 
 
