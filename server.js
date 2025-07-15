@@ -52,9 +52,9 @@ const server = http.createServer(async (req, res) => {
   }
 
       if (req.url === '/signup' && req.method === 'POST') {
-        const { name, email, password, confirm, role } = await parseBody();
+        const { name, email, password, confirm, role, phone } = await parseBody();
 
-        if (!name || !email || !password || password !== confirm || !role) {
+        if (!name || !email || !password || password !== confirm || !role ||!phone) {
           res.writeHead(400);
           res.end(JSON.stringify({ error: 'Invalid input' }));
           return;
@@ -73,7 +73,8 @@ const server = http.createServer(async (req, res) => {
           id: result.insertedId,
           name,
           email,
-          role
+          role,
+          phone
         };
 
         res.writeHead(200);
@@ -99,6 +100,7 @@ const server = http.createServer(async (req, res) => {
           name: user.name,
           email: user.email,
           role: user.role,
+          phone: user.phone,
           redirect: 'landing-page'
         }));
       }
