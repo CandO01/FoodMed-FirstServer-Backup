@@ -67,14 +67,16 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        const result = await usersCollection.insertOne({ name, email, password, role });
+        const result = await usersCollection.insertOne({ name, phone, email, password, confirm, role });
 
         const newUser = {
           id: result.insertedId,
           name,
+          phone,
           email,
+          password,
+          confirm,
           role,
-          phone
         };
 
         res.writeHead(200);
