@@ -3,6 +3,7 @@ import { connectToDB, getDB } from './db.js'
 import dotenv from 'dotenv'
 import nodemailer from 'nodemailer'
 
+
 dotenv.config()
 
 const PORT = process.env.PORT || 5223
@@ -67,7 +68,18 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        const result = await usersCollection.insertOne({ name, phone, email, password, confirm, role });
+        const result = await usersCollection.insertOne(
+                      { name, 
+                        phone, 
+                        email, 
+                        password, 
+                        confirm, 
+                        profileImage: '',   
+                        location: '',          
+                        foodPreference: ''  
+
+                       }
+                      );
 
         const newUser = {
           id: result.insertedId,
@@ -85,6 +97,98 @@ const server = http.createServer(async (req, res) => {
           user: newUser
         }));
       }
+
+      //User profile upload
+      else if (req.url === '/profile-setup' && req.method === 'POST') {
+        const { email, profileImage, bio, location } = await parseBody();
+
+        if (!email || !profileImage || !bio || !location) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: 'Missing required fields' }));
+          return;
+        }
+
+        try {
+          // 1. Upload image to Cloudinary
+          const formData = new URLSearchParams();
+          formData.append('file', profileImage); // base64 string from frontend
+          formData.append('upload_preset', 'foodmed_unsigned');
+
+          const cloudinaryRes = await fetch(`https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload`, {
+            method: 'POST',
+            body: formData
+          });
+
+          const cloudData = await cloudinaryRes.json();
+
+          if (!cloudData.secure_url) {
+            res.writeHead(500);
+            res.end(JSON.stringify({ error: 'Image upload failed' }));
+            return;
+          }
+
+          const imageUrl = cloudData.secure_url;
+
+          // 2. Save to database
+        const result = await usersCollection.updateOne(
+          { email: email }, 
+          { $set: { profileImage: imageUrl, bio } }
+        );
+
+
+          if (result.modifiedCount === 1) {
+            res.writeHead(200);
+            res.end(JSON.stringify({
+              message: 'Profile updated successfully',
+              profileImage: imageUrl,
+              bio
+            }));
+          } else {
+            res.writeHead(404);
+            res.end(JSON.stringify({ error: 'User not found or no update made' }));
+          }
+        } catch (err) {
+          console.error(err);
+          res.writeHead(500);
+          res.end(JSON.stringify({ error: 'Internal server error' }));
+        }
+      }
+
+        // Get a single user's profile by email
+        else if (req.url.startsWith('/user-profile') && req.method === 'GET') {
+          const parsedUrl = new URL(req.url, `http://${req.headers.host}`)
+          const email = parsedUrl.searchParams.get('email')
+
+          if (!email) {
+            res.writeHead(400)
+            res.end(JSON.stringify({ error: 'Email query parameter is required' }))
+            return
+          }
+
+          try {
+            const user = await usersCollection.findOne({ email })
+            if (!user) {
+              res.writeHead(404)
+              res.end(JSON.stringify({ error: 'User not found' }))
+            } else {
+              res.writeHead(200, { 'Content-Type': 'application/json' })
+              res.end(JSON.stringify({
+                name: user.name,
+                email: user.email,
+                bio: user.bio || '',
+                profileImage: user.profileImage || '',
+                location: user.location || '',
+                phone: user.phone || '',
+                role: user.role || ''
+              }))
+            }
+          } catch (err) {
+            console.error(err)
+            res.writeHead(500)
+            res.end(JSON.stringify({ error: 'Server error' }))
+          }
+        }
+
 
   // -- LOGIN SECTION--
       else if (req.url === '/login' && req.method === 'POST') {
