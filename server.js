@@ -18,35 +18,29 @@ const transporter = nodemailer.createTransport({
 })
 
 const server = http.createServer(async (req, res) => {
-        const allowedOrigins = [
+    const allowedOrigins = [
           'http://localhost:5173',
-          'https://foodmed-firstserver-backup.onrender.com' // or wherever your frontend is deployed
-            ];
-            
-            const origin = req.headers.origin;
-            if (allowedOrigins.includes(origin)) {
-              res.setHeader('Access-Control-Allow-Origin', origin);
-              res.setHeader('Access-Control-Allow-Credentials', 'true');
-            } else {
-              const allowedOrigin = req.headers.origin || '*';
-              res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
-              res.setHeader('Access-Control-Allow-Credentials', 'true');
-            }
-            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS, DELETE');
-            res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+          'https://foodmed-firstserver-backup.onrender.com'
+        ];
+        const origin = req.headers.origin;
+        
+        if (allowedOrigins.includes(origin)) {
+          res.setHeader('Access-Control-Allow-Origin', origin);
+          res.setHeader('Access-Control-Allow-Credentials', 'true');
+        } else {
+          res.setHeader('Access-Control-Allow-Origin', '*'); 
+          res.setHeader('Access-Control-Allow-Credentials', 'true');
+        }
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS, DELETE');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        
+        // Early return for preflight
+        if (req.method === 'OPTIONS') {
+          res.writeHead(204);
+          res.end();
+          return;
+        }
 
-
-       if (req.method === 'OPTIONS') {
-        const origin = req.headers.origin || '*';
-        res.writeHead(204, {
-          'Access-Control-Allow-Origin': origin,
-          'Access-Control-Allow-Credentials': 'true',
-          'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type'
-        });
-        res.end();
-        return;
-      }
 
   const db = getDB()
   const usersCollection = db.collection('users')
@@ -72,14 +66,14 @@ const server = http.createServer(async (req, res) => {
         const { name, email, password, confirm, role, phone } = await parseBody();
 
         if (!name || !email || !password || password !== confirm || !role ||!phone) {
-          res.writeHead(400);
+         res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Invalid input' }));
           return;
         }
 
         const existing = await usersCollection.findOne({ email });
         if (existing) {
-          res.writeHead(409);
+          res.writeHead(409, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'User already exists' }));
           return;
         }
@@ -106,7 +100,7 @@ const server = http.createServer(async (req, res) => {
           role,
         };
 
-        res.writeHead(200);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           message: 'Signup successful',
           user: newUser
@@ -118,7 +112,7 @@ const server = http.createServer(async (req, res) => {
         const { email, profileImage, bio, location } = await parseBody();
 
         if (!email || !profileImage || !bio || !location) {
-          res.writeHead(400);
+          res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Missing required fields' }));
           return;
         }
@@ -137,7 +131,7 @@ const server = http.createServer(async (req, res) => {
           const cloudData = await cloudinaryRes.json();
 
           if (!cloudData.secure_url) {
-            res.writeHead(500);
+            res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Image upload failed' }));
             return;
           }
@@ -152,19 +146,19 @@ const server = http.createServer(async (req, res) => {
 
 
           if (result.modifiedCount === 1) {
-            res.writeHead(200);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
               message: 'Profile updated successfully',
               profileImage: imageUrl,
               bio
             }));
           } else {
-            res.writeHead(404);
+            res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'User not found or no update made' }));
           }
         } catch (err) {
           console.error(err);
-          res.writeHead(500);
+         res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Internal server error' }));
         }
       }
@@ -175,7 +169,7 @@ const server = http.createServer(async (req, res) => {
           const email = parsedUrl.searchParams.get('email')
 
           if (!email) {
-            res.writeHead(400)
+            res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Email query parameter is required' }))
             return
           }
@@ -183,7 +177,7 @@ const server = http.createServer(async (req, res) => {
           try {
             const user = await usersCollection.findOne({ email })
             if (!user) {
-              res.writeHead(404)
+              res.writeHead(404, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ error: 'User not found' }))
             } else {
               res.writeHead(200, { 'Content-Type': 'application/json' })
@@ -199,7 +193,7 @@ const server = http.createServer(async (req, res) => {
             }
           } catch (err) {
             console.error(err)
-            res.writeHead(500)
+            res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Server error' }))
           }
         }
@@ -211,10 +205,10 @@ const server = http.createServer(async (req, res) => {
       const user = await usersCollection.findOne({ email, password });
 
       if (!user) {
-        res.writeHead(401);
+       res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Invalid credentials' }));
       } else {
-        res.writeHead(200);
+       res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           message: 'You have logged in successfully',
           id: user._id,
@@ -232,7 +226,7 @@ const server = http.createServer(async (req, res) => {
     const user = await usersCollection.findOne({ email })
 
     if (!user) {
-      res.writeHead(404)
+      res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'User not found' }))
     } else {
       const otp = Math.floor(100000 + Math.random() * 900000).toString()
@@ -243,7 +237,7 @@ const server = http.createServer(async (req, res) => {
       )
 
       await sendOTPEmail(email, otp)
-      res.writeHead(200)
+      res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ message: 'OTP sent to email' }))
     }
   } else if (req.url === '/verify-otp' && req.method === 'POST') {
@@ -251,39 +245,39 @@ const server = http.createServer(async (req, res) => {
     const record = await otpsCollection.findOne({ email })
 
     if (!record || record.otp !== otp.trim()) {
-      res.writeHead(400)
+      res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Invalid OTP' }))
     } else {
       const expired = Date.now() - record.createdAt > 5 * 60 * 1000
       if (expired) {
-        res.writeHead(400)
+        res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'OTP expired' }))
       } else {
-        res.writeHead(200)
+        res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ message: 'OTP verified' }))
       }
     }
   } else if (req.url === '/reset-password' && req.method === 'POST') {
     const { email, password, confirm } = await parseBody()
     if (password !== confirm) {
-      res.writeHead(400)
+      res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Passwords do not match' }))
     } else {
       const updated = await usersCollection.updateOne({ email }, { $set: { password } })
       if (updated.matchedCount === 0) {
-        res.writeHead(404)
+        res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'User not found' }))
       } else {
-        res.writeHead(200)
+        res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ message: 'Password reset successful' }))
       }
     }
   } else if (req.url === '/users' && req.method === 'GET') {
     const users = await usersCollection.find().toArray()
-    res.writeHead(200)
+   res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(users))
   } else {
-    res.writeHead(404)
+    res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Route not found' }))
   }
 })
