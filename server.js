@@ -131,7 +131,7 @@ const server = http.createServer(async (req, res) => {
           // 2. Save to database
         const result = await usersCollection.updateOne(
           { email: email }, 
-          { $set: { profileImage: imageUrl, bio } }
+          { $set: { profileImage: imageUrl, bio, location } }
         );
 
 
