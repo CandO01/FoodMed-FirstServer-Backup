@@ -68,19 +68,18 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        const result = await usersCollection.insertOne(
-                      { name, 
-                        phone, 
-                        email, 
-                        password, 
-                        confirm, 
-                        profileImage: '',   
-                        location: '',          
-                        foodPreference: ''  
-
-                       }
-                      );
-
+         const result  = await usersCollection.insertOne({
+                      name,
+                      phone,
+                      email,
+                      password,
+                      confirm,
+                      profileImage: '',
+                      foodPreference: '',
+                      bio: '',
+                      location: '',  
+                      role          
+                    });
         const newUser = {
           id: result.insertedId,
           name,
