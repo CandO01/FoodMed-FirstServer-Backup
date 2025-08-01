@@ -28,21 +28,25 @@ const server = http.createServer(async (req, res) => {
               res.setHeader('Access-Control-Allow-Origin', origin);
               res.setHeader('Access-Control-Allow-Credentials', 'true');
             } else {
-              res.setHeader('Access-Control-Allow-Origin', '*');
+              const allowedOrigin = req.headers.origin || '*';
+              res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+              res.setHeader('Access-Control-Allow-Credentials', 'true');
             }
             res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS, DELETE');
             res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
 
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE',
-      'Access-Control-Allow-Headers': 'Content-Type'
-    })
-    res.end()
-    return
-  }
+       if (req.method === 'OPTIONS') {
+        const origin = req.headers.origin || '*';
+        res.writeHead(204, {
+          'Access-Control-Allow-Origin': origin,
+          'Access-Control-Allow-Credentials': 'true',
+          'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type'
+        });
+        res.end();
+        return;
+      }
 
   const db = getDB()
   const usersCollection = db.collection('users')
