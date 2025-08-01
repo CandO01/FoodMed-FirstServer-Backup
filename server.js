@@ -18,9 +18,21 @@ const transporter = nodemailer.createTransport({
 })
 
 const server = http.createServer(async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+        const allowedOrigins = [
+          'http://localhost:5173',
+          'https://foodmed-firstserver-backup.onrender.com' // or wherever your frontend is deployed
+            ];
+            
+            const origin = req.headers.origin;
+            if (allowedOrigins.includes(origin)) {
+              res.setHeader('Access-Control-Allow-Origin', origin);
+              res.setHeader('Access-Control-Allow-Credentials', 'true');
+            } else {
+              res.setHeader('Access-Control-Allow-Origin', '*');
+            }
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS, DELETE');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
