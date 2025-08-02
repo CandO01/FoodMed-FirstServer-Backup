@@ -18,28 +18,42 @@ const transporter = nodemailer.createTransport({
 })
 
 const server = http.createServer(async (req, res) => {
-    const allowedOrigins = [
-          'http://localhost:5173',
-          'https://foodmed-firstserver-backup.onrender.com'
-        ];
-        const origin = req.headers.origin;
+    // const allowedOrigins = [
+    //       'http://localhost:5173',
+    //       'https://foodmed-firstserver-backup.onrender.com'
+    //     ];
+    //     const origin = req.headers.origin;
         
-        if (allowedOrigins.includes(origin)) {
-          res.setHeader('Access-Control-Allow-Origin', origin);
-          res.setHeader('Access-Control-Allow-Credentials', 'true');
-        } else {
-          res.setHeader('Access-Control-Allow-Origin', '*'); 
-          res.setHeader('Access-Control-Allow-Credentials', 'true');
-        }
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS, DELETE');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    //     if (allowedOrigins.includes(origin)) {
+    //       res.setHeader('Access-Control-Allow-Origin', origin);
+    //       res.setHeader('Access-Control-Allow-Credentials', 'true');
+    //     } else {
+    //       res.setHeader('Access-Control-Allow-Origin', '*'); 
+    //       res.setHeader('Access-Control-Allow-Credentials', 'true');
+    //     }
+    //     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS, DELETE');
+    //     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
         
-        // Early return for preflight
-        if (req.method === 'OPTIONS') {
-          res.writeHead(204);
-          res.end();
-          return;
-        }
+    //     // Early return for preflight
+    //     if (req.method === 'OPTIONS') {
+    //       res.writeHead(204);
+    //       res.end();
+    //       return;
+    //     }
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Content-Type', 'application/json');
+  
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      })
+      res.end()
+      return
+    }
 
 
   const db = getDB()
