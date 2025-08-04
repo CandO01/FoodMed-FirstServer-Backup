@@ -1,0 +1,17 @@
+{
+  "name": "food-med-api",
+  "version": "1.0.0",
+  "description": "a database for user information and food/medicine data retrieval",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "food-med-team",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.0.0",
+    "mongodb": "^6.17.0",
+    "nodemailer": "^7.0.3"
+  }
+}
