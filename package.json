@@ -10,6 +10,7 @@
   "author": "food-med-team",
   "license": "ISC",
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "dotenv": "^17.0.0",
     "mongodb": "^6.17.0",
     "nodemailer": "^7.0.3"

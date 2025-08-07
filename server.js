@@ -2,6 +2,7 @@ import http from 'node:http'
 import { connectToDB, getDB } from './db.js'
 import dotenv from 'dotenv'
 import nodemailer from 'nodemailer'
+import bcrypt from 'bcrypt'
 
 
 dotenv.config()
@@ -68,12 +69,14 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
+        const saltrounds = 10;
+        const hashedPassword = await bcrypt.hash(password, saltrounds);
+
         const result  = await usersCollection.insertOne({
                       name,
                       phone,
                       email,
-                      password,
-                      confirm,
+                      password: hashedPassword,
                       profileImage: '',
                       foodPreference: '',
                       bio: '',
@@ -87,8 +90,6 @@ const server = http.createServer(async (req, res) => {
           name,
           phone,
           email,
-          password,
-          confirm,
           canDonate,
           canRequest
         };
@@ -196,12 +197,20 @@ const server = http.createServer(async (req, res) => {
   // -- LOGIN SECTION--
       else if (req.url === '/login' && req.method === 'POST') {
       const { email, password } = await parseBody();
-      const user = await usersCollection.findOne({ email, password });
+      const user = await usersCollection.findOne({ email});
 
       if (!user) {
         res.writeHead(401);
         res.end(JSON.stringify({ error: 'Invalid credentials' }));
-      } else {
+      } 
+
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Invalid credentials' }));
+      }
+      
+      else {
         res.writeHead(200);
         res.end(JSON.stringify({
           message: 'You have logged in successfully',
@@ -258,7 +267,9 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(400)
       res.end(JSON.stringify({ error: 'Passwords do not match' }))
     } else {
-      const updated = await usersCollection.updateOne({ email }, { $set: { password } })
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+      const updated = await usersCollection.updateOne({ email }, { $set: { password: hashedPassword } })
       if (updated.matchedCount === 0) {
         res.writeHead(404)
         res.end(JSON.stringify({ error: 'User not found' }))
