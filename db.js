@@ -1,14 +1,16 @@
 // db.js
 import { MongoClient } from 'mongodb'
 import dotenv from 'dotenv'
+
 dotenv.config()
 
 let db = null
 
 export async function connectToDB() {
-  const client = new MongoClient(process.env.AUTH_DB_URI)
+  console.log('MONGODB_URI from env:', process.env.MONGODB_URI)
+  const client = new MongoClient(process.env.MONGODB_URI)
   await client.connect()
-  db = client.db() // will use foodmed_auth
+  db = client.db('foodmed')   // single database
   console.log('✅ Connected to MongoDB')
 }
 
