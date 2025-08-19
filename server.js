@@ -406,7 +406,16 @@ const server = http.createServer(async (req, res) => {
           email: fields.email?.toString(),
           password: hashedPassword,
           phone: fields.phone?.toString(),
-          image: imageUrl
+          image: imageUrl,
+          overview: fields.overview?.toString()
+        };
+
+        // check if doctor already exists by email
+        const existingDoctor = await getDoctorByEmail(doctorData.email);
+        if(existingDoctor){
+          res.writeHead(400, { 'Content-Type':'application/json' });
+          res.end(JSON.stringify({ error: 'User already exists' }));
+          return;
         }
 
         const result = await createDoctor(doctorData)

@@ -11,15 +11,16 @@ let doctorsCollection
 // Initialize doctors DB
 export async function initDoctorDB() {
   await client.connect()
-  const db = client.db('foodmed')
-  doctorsCollection = db.collection('doctors')
+  const db = client.db('foodmed') //single database
+  doctorsCollection = db.collection('doctors') 
 }
 
 // Create doctor
 export async function createDoctor(doctorData) {
-  doctorData.patientsAttended = 0
+  doctorData.patientsCount = 0
   doctorData.stars = 0
   doctorData.createdAt = new Date()
+  doctorData.overview = doctorData.overview || ''
   const result = await doctorsCollection.insertOne(doctorData)
   return result // use result.insertedId in server response
 }
@@ -30,8 +31,7 @@ export async function createDoctor(doctorData) {
 // }
 
 export async function getDoctorByEmail(email) {
-  const doctors = await getDoctors();
-  return doctors.find(d => d.email === email) || null;
+  return await doctorsCollection.findOne({ email })
 }
 // Get all doctors
 export async function getDoctors() {
@@ -44,4 +44,8 @@ export async function updateDoctor(id, updates) {
     { _id: new ObjectId(id) },
     { $set: updates }
   )
+}
+
+export function getDoctorCollection(){
+  return doctorsCollection;
 }
