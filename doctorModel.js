@@ -6,13 +6,16 @@ dotenv.config()
 const MONGODB_URI = process.env.MONGODB_URI
 const client = new MongoClient(MONGODB_URI)
 
-let doctorsCollection
+let doctorsCollection = null
 
 // Initialize doctors DB
 export async function initDoctorDB() {
-  await client.connect()
-  const db = client.db('foodmed') //single database
-  doctorsCollection = db.collection('doctors') 
+  if (!client.topology?.isConnected()) {
+    await client.connect()
+  }
+  const db = client.db('foodmed') // single database
+  doctorsCollection = db.collection('doctors')
+  console.log('✅ Doctors collection initialized')
 }
 
 // Create doctor
@@ -22,17 +25,14 @@ export async function createDoctor(doctorData) {
   doctorData.createdAt = new Date()
   doctorData.overview = doctorData.overview || ''
   const result = await doctorsCollection.insertOne(doctorData)
-  return result // use result.insertedId in server response
+  return result
 }
 
-// export async function getDoctorByEmail(email) {
-//   const doctorsCollection = getDB().collection('doctors');
-//   return await doctorsCollection.findOne({ email });
-// }
-
+// Get doctor by email
 export async function getDoctorByEmail(email) {
   return await doctorsCollection.findOne({ email })
 }
+
 // Get all doctors
 export async function getDoctors() {
   return await doctorsCollection.find().toArray()
@@ -46,6 +46,10 @@ export async function updateDoctor(id, updates) {
   )
 }
 
-export function getDoctorCollection(){
-  return doctorsCollection;
+// Always return the current collection
+export function getDoctorCollection() {
+  if (!doctorsCollection) {
+    throw new Error('❌ Doctors collection not initialized. Call initDoctorDB() first.')
+  }
+  return doctorsCollection
 }

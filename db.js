@@ -7,7 +7,6 @@ dotenv.config()
 let db = null
 
 export async function connectToDB() {
-  console.log('MONGODB_URI from env:', process.env.MONGODB_URI)
   const client = new MongoClient(process.env.MONGODB_URI)
   await client.connect()
   db = client.db('foodmed')   // single database
