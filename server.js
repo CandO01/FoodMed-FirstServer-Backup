@@ -434,7 +434,7 @@ else if (req.url === '/pay' && req.method === 'POST') {
 
       if (!email || !amount || !doctorId) throw new Error('Missing payment info');
 
-      const tx_ref = `foodmed-${Date.now()}` // unique reference
+      const tx_ref = `Foodmed-${Date.now()}` // unique reference
      
       const payload = {
         tx_ref,
