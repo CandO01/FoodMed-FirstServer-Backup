@@ -440,7 +440,7 @@ else if (req.url === '/pay' && req.method === 'POST') {
         tx_ref,
         amount,
         currency: 'NGN',
-        redirect_url: `https://foodmed.netlify.app/payment-success?doctorId=${doctorId}&email=${email}&tx_ref=${tx_ref}`,
+        redirect_url: `https://foodmed-firstserver-backup.onrender.com/payment-success?doctorId=${doctorId}&email=${email}&tx_ref=${tx_ref}`,
         payment_options: 'card, mobilemoney, ussd',
         customer: { email },
         customizations: {
