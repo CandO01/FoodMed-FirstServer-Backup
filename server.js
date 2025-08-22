@@ -27,18 +27,10 @@ cloudinary.config({
 
 const PORT = 5228;
 
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5228';
+// const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5228';
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:5173'
+// const BASE_URL = process.env.BASE_URL || 'http://localhost:5173'
 
-// Email Setup
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL,
-    pass: process.env.EMAIL_PASS
-  }
-});
 
 
 const server = http.createServer(async (req, res) => {
@@ -47,7 +39,11 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
   
   if (req.method === 'OPTIONS') {
-    res.writeHead(204)
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    })
     res.end()
     return
   }
