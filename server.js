@@ -440,7 +440,7 @@ else if (req.url === '/pay' && req.method === 'POST') {
         tx_ref,
         amount,
         currency: 'NGN',
-        redirect_url: `${CLIENT_URL}/payment-success?doctorId=${doctorId}&email=${email}&tx_ref=${tx_ref}`,
+        redirect_url: `https://foodmed-firstserver-backup.onrender.com/payment-success?doctorId=${doctorId}&email=${email}&tx_ref=${tx_ref}`,
         payment_options: 'card, mobilemoney, ussd',
         customer: { email },
         customizations: {
@@ -592,13 +592,13 @@ else if (req.url === '/pay' && req.method === 'POST') {
     // Redirect to frontend success page
 
     res.writeHead(302, {
-      Location: `${BASE_URL}/payment-success?status=completed&tx_ref=${verifyData.data.tx_ref}&transaction_id=${verifyData.data.id}&doctorId=${doctorId}&email=${patientEmail}`,
+      Location: `https://foodmed.netlify.app/payment-success?status=completed&tx_ref=${verifyData.data.tx_ref}&transaction_id=${verifyData.data.id}&doctorId=${doctorId}&email=${patientEmail}`,
     });
     res.end();
   } catch (err) {
     console.error("Payment handling error:", err);
     res.writeHead(302, {
-      Location: `${BASE_URL}/payment-success?status=failed&doctorId=${doctorId}&email=${patientEmail}`,
+      Location: `https://foodmed.netlify.app/payment-success?status=failed&doctorId=${doctorId}&email=${patientEmail}`,
     });
     res.end();
   }
