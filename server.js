@@ -27,7 +27,9 @@ cloudinary.config({
 
 const PORT = 5228;
 
-const clientUrl = process.env.CLIENT_URL
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5228';
+
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5173'
 
 // Email Setup
 const transporter = nodemailer.createTransport({
@@ -438,7 +440,7 @@ else if (req.url === '/pay' && req.method === 'POST') {
         tx_ref,
         amount,
         currency: 'NGN',
-        redirect_url: `https://foodmed-firstserver-backup.onrender.com/payment-success?doctorId=${doctorId}&email=${email}&tx_ref=${tx_ref}`,
+        redirect_url: `${CLIENT_URL}/payment-success?doctorId=${doctorId}&email=${email}&tx_ref=${tx_ref}`,
         payment_options: 'card, mobilemoney, ussd',
         customer: { email },
         customizations: {
@@ -588,16 +590,15 @@ else if (req.url === '/pay' && req.method === 'POST') {
     // console.log("Email sent to patient");
 
     // Redirect to frontend success page
-    const redirectUrl = `${clientUrl}/payment-success?status=completed&tx_ref=${verifyData.data.tx_ref}&transaction_id=${verifyData.data.id}&doctorId=${doctorId}&email=${patientEmail}`;
 
     res.writeHead(302, {
-      Location: redirectUrl,
+      Location: `${BASE_URL}/payment-success?status=completed&tx_ref=${verifyData.data.tx_ref}&transaction_id=${verifyData.data.id}&doctorId=${doctorId}&email=${patientEmail}`,
     });
     res.end();
   } catch (err) {
     console.error("Payment handling error:", err);
     res.writeHead(302, {
-      Location: `${clientUrl}/payment-success?status=failed&doctorId=${doctorId}&email=${patientEmail}`,
+      Location: `${BASE_URL}/payment-success?status=failed&doctorId=${doctorId}&email=${patientEmail}`,
     });
     res.end();
   }
