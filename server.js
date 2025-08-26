@@ -6,8 +6,15 @@ import {
   initDoctorDB, 
   createDoctor,
   getDoctorByEmail, 
-  getDoctorCollection  
+  getDoctorCollection 
 } from './doctorModel.js'
+import {
+  initAppointmentDB,
+  createAppointment,
+  getAppointmentsByDoctor,
+  getAppointmentsByPatient,
+  updateAppointment
+} from './appointmentsModel.js'
 import dotenv from 'dotenv'
 import formidable from 'formidable'
 import nodemailer from 'nodemailer'
@@ -22,6 +29,14 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 })
 
+  const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
 
 // const port = await getPort({ port: 5223 });
 
@@ -30,8 +45,6 @@ const PORT = 5228;
 // const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5228';
 
 // const BASE_URL = process.env.BASE_URL || 'http://localhost:5173'
-
-
 
 const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -387,39 +400,28 @@ else if (req.url === '/reset-password' && req.method === 'POST') {
   
   // ---------------- UPDATE DOCTOR ----------------
   else if (req.url.startsWith('/doctors/') && req.method === 'PATCH') {
-    const parts = req.url.split('/'); 
-    const id = parts[2];        // doctor id
-    const action = parts[3];    // book
-    
-    if (action === 'book') {
-      let body = ''
-      req.on('data', chunk => (body += chunk.toString()))
-      req.on('end', async () => {
-        try {
-          console.log('Booking doctor with ID:', id)
-          const doctorsCollection = getDoctorCollection()
-          console.log('Got doctorsCollection?', !!doctorsCollection);
-          
-          const result = await doctorsCollection.updateOne(
-            { _id: new ObjectId(id) },
-            { $inc: { patientsCount: 1 } }
-          );
-          console.log('Update result:', result)
-          
-          if (result.modifiedCount > 0) {
-            res.writeHead(200, { 'Content-Type':'application/json' });
-            res.end(JSON.stringify({ message: 'Appointment booked successfully!!!' }))
-          } else {
-            res.writeHead(400, { 'Content-Type':'application/json' });
-            res.end(JSON.stringify({ error: 'Doctor not found' }))
-          }
-        } catch (err) {
-          res.writeHead(500, { 'Content-Type':'application/json' });
-          res.end(JSON.stringify({ error: 'Booking failed', details: err.message  }))
-        }
-      })
+  const id = req.url.split('/')[2];
+  let body = '';
+  req.on('data', chunk => { body += chunk });
+  req.on('end', async () => {
+    try {
+      const updateData = JSON.parse(body);
+      const doctorsCollection = await getDoctorCollection();
+
+      console.log('Got doctorsCollection?', !!doctorsCollection);
+      await doctorsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updateData }   // ❌ removed $inc: { patientsCount: 1 }
+      );
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ message: 'Doctor updated successfully' }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
     }
-  }
+  });
+}
+
   // -------PAYMENT TO BOOK APPOINTMENT---------
 else if (req.url === '/pay' && req.method === 'POST') {
   let body = '';
@@ -516,31 +518,6 @@ else if (req.url === '/pay' && req.method === 'POST') {
     const doctor = await doctorsCollection.findOne({ _id: new ObjectId(doctorId) });
     if (!doctor || !doctor.email) throw new Error("Doctor not found or missing email");
 
-    // console.log("Doctor found:", doctor.email, doctor.name);
-
-    // Update doctor patient count
-    // await doctorsCollection.updateOne(
-    //   { _id: new ObjectId(doctorId) },
-    //   { $inc: { patientsCount: 1, stars: 1 } }
-    // );
-    // await doctorsCollection.updateOne(
-    //     { _id: new ObjectId(doctorId) },
-    //     [
-    //       {
-    //         $set: {
-    //           patientsCount: { $add: ["$patientsCount", 1] },
-    //           stars: {
-    //             $cond: {
-    //               if: { $lt: ["$stars", 5] }, // only increment if stars < 5
-    //               then: { $add: ["$stars", 1] },
-    //               else: "$stars"
-    //             }
-    //           }
-    //         }
-    //       }
-    //     ]
-    //   );
-
     // Update doctor patient count
     await doctorsCollection.updateOne(
       { _id: new ObjectId(doctorId) },
@@ -557,6 +534,19 @@ else if (req.url === '/pay' && req.method === 'POST') {
     )
 
     // console.log("Doctor patient count updated");
+
+    // Create appointment automatically after payment
+
+    const patient = await usersCollection.findOne({ email: patientEmail })
+
+    await createAppointment({
+      doctorId: new ObjectId(doctorId),
+      patientId: new ObjectId(patient._id),
+      date: new Date().toISOString(),
+      time: null,
+      notes: 'Payment confirmed',
+      status: 'Confirmed'
+    })
 
     // Email setup
     const transporter = nodemailer.createTransport({
@@ -600,6 +590,129 @@ else if (req.url === '/pay' && req.method === 'POST') {
   }
 }
 
+// POST /appointment
+else if (req.url === '/appointment' && req.method === 'POST') {
+  try {
+    const body = await parseBody(req);
+
+    const appointment = {
+      patientId: new ObjectId(body.patientId),
+      doctorId: new ObjectId(body.doctorId),
+      date: new Date(body.date),
+      status: 'pending',
+      createdAt: new Date()
+    };
+
+    const db = getDB();
+    const appointmentsCollection = db.collection("appointments");
+    const result = await appointmentsCollection.insertOne(appointment);
+
+    // fetch patient + doctor info
+    const usersCollection = db.collection("users");
+    const doctorsCollection = getDoctorCollection();
+
+    const patient = await usersCollection.findOne({ _id: new ObjectId(body.patientId) });
+    const doctor = await doctorsCollection.findOne({ _id: new ObjectId(body.doctorId) });
+
+    const enrichedAppointment = {
+      ...appointment,
+      _id: result.insertedId,
+      patientName: patient ? patient.name : "",
+      patientEmail: patient ? patient.email : "",
+      patientPhone: patient ? patient.phone : "",
+
+      doctorName: doctor ? doctor.name : "",
+      doctorEmail: doctor ? doctor.email : "",
+      doctorPhone: doctor ? doctor.phone : ""
+    };
+
+    res.writeHead(201, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(enrichedAppointment));
+  } catch (err) {
+    console.error("POST /appointment error:", err);
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Failed to create appointment' }));
+  }
+}
+
+
+// GET /appointment/doctor/:id
+else if(req.url.startsWith('/appointment/doctor') && req.method === 'GET'){
+  try {
+    const doctorId = req.url.split('/').pop()
+    const appointments = await getAppointmentsByDoctor(doctorId);
+
+     const db = getDB();
+    const usersCollection = db.collection("users");
+
+    const enriched = await Promise.all(
+      appointments.map(async(appt)=>{
+        const patient = await usersCollection.findOne({ _id: new ObjectId(appt.patientId) });
+        return{
+          ...appt, 
+          patientName: patient ? patient.name : '',
+          patientEmail: patient ? patient.email : '',
+          patientPhone: patient ? patient.phone : ''
+        }
+      })
+    );
+
+
+    res.writeHead(200, { 'Content-Type':'application/json' });
+    res.end(JSON.stringify(enriched));
+  } catch (error) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Failed to fetch doctor appointments' }));
+  }
+}
+
+// GET/appointment/patient/:id
+else if(req.url.startsWith('/appointment/patient') && req.method === 'GET'){
+  const patientId = req.url.split('/').pop();
+  try {
+    const appointments = await getAppointmentsByPatient(patientId);
+    const doctorsCollection = getDoctorCollection();
+
+    const enriched = await Promise.all(
+      appointments.map(async(appt)=>{
+        const doctor = await doctorsCollection.findOne({ _id: new ObjectId(appt.doctorId) });
+        return {
+          ...appt,
+          doctorName: doctor ? doctor.name : 'Unknown Doctor',
+          doctorEmail: doctor ? doctor.email : '',
+          doctorPhone: doctor ? doctor.phone : ''
+        }
+      })
+    )
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(enriched));
+  } catch (err) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Failed to fetch patient appointments'}))
+  }
+}
+// PATCH /appointment/:id
+else if(req.url.startsWith('/appointment') && req.method === 'PATCH'){
+  const id = req.url.split('/').pop()
+
+  let body = ''
+  req.on('data', chunk => body += chunk.toString());
+  req.on('end', async () => {
+    try{
+    const updates = JSON.parse(body);
+    await updateAppointment(id, updates);
+
+    res.writeHead(200, { 'Content-Type':'application/json' })
+    res.end(JSON.stringify({ success: true }))
+  }catch(err){
+    console.error('Update appointment error:', err);
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Failed to update appointment' }));
+  }
+  })
+}
+
 
 
   else {
@@ -608,7 +721,7 @@ else if (req.url === '/pay' && req.method === 'POST') {
   }
 })
 
-Promise.all([connectToDB(), initDoctorDB()])
+Promise.all([connectToDB(), initDoctorDB(), initAppointmentDB()])
   .then(() => {
     server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`))
   })
